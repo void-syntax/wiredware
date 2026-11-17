@@ -1,24 +1,29 @@
 import subprocess
-from pathlib import Path
 
-import pymupdf as fitz
-from fastembed import TextEmbedding
-
-model = TextEmbedding(model_name="jinaai/jina-embeddings-v2-base-code")
+import ollama
 
 
-def get_embedding(text: str) -> list[float]:
-    return list(model.embed([text]))[0].tolist()  # noqa
+def git_check(diff: str, report: str) -> str:
+    response = ollama.generate(
+        model="qwen3.5:4b",
+        prompt=f"""
+You are a security code reviewer. Check if the provided git diff introduces or repeats the vulnerability described in the security report.
 
+Respond ONLY with valid JSON matching this schema:
+{{"vulnerable": boolean, "reason": "one short sentence in English explaining why, or PASS if safe"}}
 
-def compare(vec1: list[float], vec2: list[float]) -> float:
-    return sum(a * b for a, b in zip(vec1, vec2))
+Security Report:
+{report}
 
+Git Diff:
+{diff}
 
-def pdf_to_text(path: Path | str) -> str:
-    path = Path(path)
-    with fitz.open(path) as pdf:
-        return "\n".join(x.get_text() for x in pdf)
+""",
+        format="json",
+        options={"temperature": 0.1},
+        think=False,
+    )
+    return response["response"]
 
 
 def get_push_diff() -> str:
